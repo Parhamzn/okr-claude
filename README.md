@@ -151,28 +151,27 @@ git like normal. The weekly GitHub Action still runs the agent loop.
 ### B. One shared instance for the team
 
 Deploy the Dockerfile in `okr-ui/Dockerfile` to any container host —
-Render, Fly.io, Railway, or your own server. The container needs:
+Render, Fly.io, Railway, or your own server. The image bakes in the
+demo OKR markdown files at `/data` so a fresh container is immediately
+usable; mount a persistent volume at `/data` later to use your team's
+real OKRs and keep edits across restarts.
 
-- The OKR markdown files mounted at `/data` (or set `OKR_DATA_DIR`)
-- `OKR_UI_USER` and `OKR_UI_PASSWORD` env vars to enable HTTP Basic Auth
-  (the app is open access if both are unset)
-- A persistent volume if you want edits to survive container restarts;
-  otherwise back the data dir with a git-pull-on-start, commit-on-save
-  workflow (not built in yet — see Open questions below)
+Locally:
 
 ```bash
-docker build -t okr-ui ./okr-ui
+docker build -t okr-ui -f okr-ui/Dockerfile .       # build context = repo root
 docker run -p 5050:5050 \
-  -v "$(pwd):/data" \
   -e OKR_UI_USER=team \
   -e OKR_UI_PASSWORD='change-me' \
   okr-ui
 ```
 
-Then deploy to Render: connect the GitHub repo, set "Docker" as the
-runtime, point at `okr-ui/Dockerfile`, add a persistent disk mounted at
-`/data` and pre-seeded with your OKR markdown files, set the two env
-vars. The free tier is enough for a small team.
+On Render: connect the GitHub repo, choose **Docker** as the runtime,
+set **Dockerfile Path** to `okr-ui/Dockerfile`, leave the build context
+on its default (repo root). Add the two `OKR_UI_*` env vars and you're
+done. Free tier is enough for a small team; cold start after idle is
+~30 s. For persistent edits, add a Render Persistent Disk mounted at
+`/data` and seed it once via Render's shell.
 
 ### C. SaaS for any company
 

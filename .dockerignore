@@ -1,0 +1,11 @@
+.git
+.gitignore
+__pycache__
+*.pyc
+.venv
+venv
+.env
+.DS_Store
+okr-claude.tar.gz
+*.tar.gz
+okr-ui/__pycache__
