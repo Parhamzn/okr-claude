@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · OKRs{% endblock %}
+{% block content %}
+
+<div class="mb-4">
+  <a href="{{ url_for('checkins_page') }}" class="text-sm text-slate-500 hover:text-slate-800">← All check-ins</a>
+</div>
+
+{% if section.present %}
+  {% set total = section.questions|length %}
+  {% set ns = namespace(filled=0) %}
+  {% for q in section.questions %}{% if q.answer %}{% set ns.filled = ns.filled + 1 %}{% endif %}{% endfor %}
+  {% set filled = ns.filled %}
+
+  {% if section.is_draft %}
+  <div class="mb-6 bg-amber-50 border border-amber-300 rounded-lg p-5">
+    <div class="flex items-start gap-3">
+      <div class="shrink-0 mt-0.5 w-6 h-6 rounded-full bg-amber-300 text-amber-900 flex items-center justify-center text-sm font-bold">!</div>
+      <div class="text-sm text-amber-900 leading-relaxed">
+        <div class="font-semibold mb-1">Draft — needs human input ({{ filled }}/{{ total }} answered).</div>
+        <p>
+          The numbers above are <em>context</em>; the human-input section is the <em>point</em> of the check-in. Until the team
+          owner names what changed, what the plan is, and what decisions they need, this document is just a status report
+          nobody reads carefully. Scroll to the bottom to fill it in.
+        </p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="mb-6 bg-emerald-50 border border-emerald-200 rounded-lg p-4 text-sm text-emerald-900 flex items-center gap-3">
+    <div class="shrink-0 w-6 h-6 rounded-full bg-emerald-200 text-emerald-900 flex items-center justify-center text-sm font-bold">✓</div>
+    <div>Complete — all {{ total }} human-input questions answered.</div>
+  </div>
+  {% endif %}
+{% endif %}
+
+<article class="bg-white border border-slate-200 rounded-lg p-8">
+  <div class="text-xs text-slate-400 font-mono mb-4">{{ rel }}</div>
+  <div id="src" class="hidden">{{ text }}</div>
+  <div id="rendered" class="markdown"></div>
+</article>
+
+{% if section.present and section.questions %}
+<section id="human-input" class="mt-8">
+  <h2 class="text-lg font-semibold mb-1">Human input</h2>
+  <p class="text-sm text-slate-600 mb-4">
+    Save your answers here. Saving rewrites the <code class="bg-slate-100 px-1 rounded text-xs">## For human input</code>
+    section of the markdown file in place; the rest of the check-in is untouched. The check-in flips to
+    <strong>complete</strong> only when every question has an answer.
+  </p>
+  <form method="POST" action="{{ url_for('edit_checkin', rel=rel) }}" class="bg-white border border-slate-200 rounded-lg p-6 space-y-5">
+    {% for q in section.questions %}
+    <div>
+      <label class="block text-sm font-medium text-slate-800 mb-1.5">
+        <span class="text-slate-400 mr-1">{{ q.num }}.</span>{{ q.question }}
+        {% if q.answer %}
+          <span class="ml-2 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 align-middle">answered</span>
+        {% else %}
+          <span class="ml-2 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200 align-middle">unanswered</span>
+        {% endif %}
+      </label>
+      <textarea name="q{{ q.num }}" rows="4"
+        class="w-full border border-slate-300 rounded px-3 py-2 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-slate-300"
+        placeholder="The team's honest read, not the polished version.">{{ q.answer }}</textarea>
+    </div>
+    {% endfor %}
+
+    <div>
+      <label class="block text-xs font-medium text-slate-600 mb-1">Your name or email (stamped on the section)</label>
+      <input name="author" type="text" placeholder="bea@embodyne.ai"
+        class="w-full sm:w-80 border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300">
+    </div>
+
+    <div class="flex items-center gap-3">
+      <button type="submit" class="bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">Save answers</button>
+      <span class="text-xs text-slate-500">An empty answer leaves the question unanswered (the check-in stays a draft).</span>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+  const src = document.getElementById("src").textContent;
+  document.getElementById("rendered").innerHTML = marked.parse(src);
+</script>
+
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Dashboard · OKRs{% endblock %}
+{% block content %}
+
+<div class="mb-8">
+  <div class="flex items-start justify-between gap-4 flex-wrap">
+    <h1 class="text-2xl font-bold tracking-tight">OKR Dashboard</h1>
+    <a href="{{ url_for('new_team') }}" class="inline-flex items-center gap-1.5 bg-slate-900 text-white text-sm font-medium px-3 py-1.5 rounded hover:bg-slate-700">
+      <span class="text-base leading-none">+</span> New team
+    </a>
+  </div>
+  <p class="text-sm text-slate-600 mt-1">
+    {{ counts.total }} KRs across {{ teams|length }} files ·
+    <span class="text-emerald-700 font-medium">{{ counts.green or 0 }} green</span> ·
+    <span class="text-amber-700 font-medium">{{ counts.yellow or 0 }} yellow</span> ·
+    <span class="text-red-700 font-medium">{{ counts.red or 0 }} red</span>
+  </p>
+
+  <div class="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs leading-relaxed">
+    <div class="flex items-start gap-2 bg-white border border-emerald-100 rounded px-3 py-2">
+      <span class="mt-1 w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+      <div><span class="font-semibold text-emerald-800">green — on pace.</span> Current value meets or beats the linear path from baseline to target for this point in the quarter.</div>
+    </div>
+    <div class="flex items-start gap-2 bg-white border border-amber-100 rounded px-3 py-2">
+      <span class="mt-1 w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+      <div><span class="font-semibold text-amber-800">yellow — slightly behind.</span> Within 20% of where the linear pace says you should be.</div>
+    </div>
+    <div class="flex items-start gap-2 bg-white border border-red-100 rounded px-3 py-2">
+      <span class="mt-1 w-2 h-2 rounded-full bg-red-500 shrink-0"></span>
+      <div><span class="font-semibold text-red-800">red — off pace.</span> More than 20% behind the linear ramp. Likely needs a conversation, not just more effort.</div>
+    </div>
+  </div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+  {% for team_name, td in teams.items() %}
+    {% set ns = namespace(green=0, yellow=0, red=0) %}
+    {% for obj in td.objectives %}
+      {% for kr in obj.krs %}
+        {% if kr.trajectory == 'green' %}{% set ns.green = ns.green + 1 %}{% endif %}
+        {% if kr.trajectory == 'yellow' %}{% set ns.yellow = ns.yellow + 1 %}{% endif %}
+        {% if kr.trajectory == 'red' %}{% set ns.red = ns.red + 1 %}{% endif %}
+      {% endfor %}
+    {% endfor %}
+  <a href="{{ url_for('team_page', team=team_name) }}"
+     class="block bg-white border border-slate-200 rounded-lg p-5 hover:border-slate-400 hover:shadow-sm transition">
+    <div class="flex items-baseline justify-between mb-1">
+      <h2 class="text-lg font-semibold">{{ team_name }}</h2>
+      <span class="text-xs text-slate-400">{{ td.frontmatter.quarter }}</span>
+    </div>
+    <div class="text-xs text-slate-500 mb-4">{{ td.frontmatter.owner or '' }}</div>
+
+    <div class="flex items-center gap-3 mb-4 text-xs">
+      <span class="inline-flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> {{ ns.green }}
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-amber-500"></span> {{ ns.yellow }}
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <span class="w-2 h-2 rounded-full bg-red-500"></span> {{ ns.red }}
+      </span>
+    </div>
+
+    {% for obj in td.objectives %}
+    <div class="mb-3 last:mb-0">
+      <div class="text-[10px] uppercase tracking-wide text-slate-400">{{ obj.id }}</div>
+      <div class="text-sm text-slate-700 leading-snug mb-1.5">{{ obj.title }}</div>
+      <div class="flex gap-1.5 flex-wrap">
+        {% for kr in obj.krs %}
+        <span class="text-[11px] px-2 py-0.5 rounded font-medium
+          {% if kr.trajectory == 'green' %}bg-emerald-100 text-emerald-800
+          {% elif kr.trajectory == 'yellow' %}bg-amber-100 text-amber-800
+          {% elif kr.trajectory == 'red' %}bg-red-100 text-red-800
+          {% else %}bg-slate-100 text-slate-700{% endif %}"
+          title="{{ kr.id }} — {{ kr.trajectory or 'unknown' }}{% if kr.trajectory == 'green' %} (on pace){% elif kr.trajectory == 'yellow' %} (within 20% behind pace){% elif kr.trajectory == 'red' %} (more than 20% behind pace){% endif %}: {{ kr.title }}">
+          {{ kr.id }}
+        </span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </a>
+  {% endfor %}
+</div>
+
+{% endblock %}

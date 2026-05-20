@@ -1,0 +1,36 @@
+{
+  "//": "Project-level MCP server configuration. Each KR's `source:` field refers to one of these providers. Replace the URLs / commands with the real servers you use; some providers ship official MCP servers, others have community ones, and you can always write a tiny custom one against your warehouse.",
+
+  "mcpServers": {
+    "linear": {
+      "type": "http",
+      "url": "https://mcp.linear.app/sse"
+    },
+    "hubspot": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@hubspot/mcp-server"],
+      "env": {
+        "HUBSPOT_ACCESS_TOKEN": "${HUBSPOT_ACCESS_TOKEN}"
+      }
+    },
+    "ga4": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@google-analytics/mcp-server"],
+      "env": {
+        "GA4_PROPERTY_ID": "${GA4_PROPERTY_ID}",
+        "GOOGLE_APPLICATION_CREDENTIALS": "${GOOGLE_APPLICATION_CREDENTIALS}"
+      }
+    },
+    "warehouse": {
+      "//": "Replace with your warehouse-of-choice MCP server (BigQuery, Snowflake, Postgres, etc). The example below assumes a small custom server that exposes named, parameterized queries.",
+      "type": "stdio",
+      "command": "node",
+      "args": ["./tools/warehouse-mcp/index.js"],
+      "env": {
+        "WAREHOUSE_URL": "${WAREHOUSE_URL}"
+      }
+    }
+  }
+}

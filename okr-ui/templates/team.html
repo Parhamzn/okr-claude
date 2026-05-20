@@ -1,0 +1,306 @@
+{% extends "base.html" %}
+{% block title %}{{ team }} · OKRs{% endblock %}
+
+{% macro traj_pill(traj) %}
+  <span class="shrink-0 inline-flex items-center text-xs px-2 py-1 rounded font-medium uppercase tracking-wide
+    {% if traj == 'green' %}bg-emerald-100 text-emerald-800
+    {% elif traj == 'yellow' %}bg-amber-100 text-amber-800
+    {% elif traj == 'red' %}bg-red-100 text-red-800
+    {% else %}bg-slate-100 text-slate-600{% endif %}"
+    title="{% if traj == 'green' %}On pace: current value meets or beats the linear path from baseline to target.{% elif traj == 'yellow' %}Slightly behind: within 20% of where the linear pace says you should be.{% elif traj == 'red' %}Off pace: more than 20% behind the linear ramp.{% else %}Trajectory not yet set.{% endif %}">{{ traj or '—' }}</span>
+{% endmacro %}
+
+{% macro dep_link(dep) %}
+  {% set parts = dep.id.split(':') %}
+  {% if parts|length == 2 and '.' in parts[1] %}
+    {% set ref = parts[1].split('.') %}
+    <a href="{{ url_for('team_page', team=parts[0]) }}#{{ ref[0] }}-{{ ref[1] }}"
+       class="inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded mr-1 mb-1 border
+       {% if dep.info and dep.info.trajectory == 'green' %}bg-emerald-50 border-emerald-200 text-emerald-800
+       {% elif dep.info and dep.info.trajectory == 'yellow' %}bg-amber-50 border-amber-200 text-amber-800
+       {% elif dep.info and dep.info.trajectory == 'red' %}bg-red-50 border-red-200 text-red-800
+       {% else %}bg-slate-50 border-slate-200 text-slate-700{% endif %}
+       hover:shadow-sm"
+       title="{{ dep.id }}{% if dep.info %} — {{ dep.info.trajectory or 'unknown' }}{% if dep.info.trajectory == 'green' %} (on pace){% elif dep.info.trajectory == 'yellow' %} (within 20% behind pace){% elif dep.info.trajectory == 'red' %} (more than 20% behind pace){% endif %}: {{ dep.info.title }}{% endif %}">
+      <span class="font-mono">{{ dep.id }}</span>
+      {% if dep.info %}<span class="text-[11px] opacity-75 truncate max-w-[16ch]">{{ dep.info.title }}</span>{% endif %}
+    </a>
+  {% else %}
+    <span class="inline-block text-xs px-2 py-1 bg-slate-100 rounded mr-1 mb-1 font-mono">{{ dep.id }}</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+
+<div class="mb-6">
+  <a href="{{ url_for('dashboard') }}" class="text-sm text-slate-500 hover:text-slate-800">← Dashboard</a>
+  <div class="flex items-end justify-between mt-2">
+    <div>
+      <div class="text-xs uppercase tracking-wide text-slate-500">{{ team_data.frontmatter.quarter }} · week {{ weeks_elapsed }} of {{ total_weeks }}</div>
+      <h1 class="text-2xl font-bold mt-1">{{ team }}</h1>
+      <div class="text-sm text-slate-600 mt-1">
+        Owner: <span class="font-medium">{{ team_data.frontmatter.owner }}</span> ·
+        Last refresh: {{ team_data.frontmatter.status_date }}
+      </div>
+    </div>
+    <div class="text-xs text-slate-400 hidden md:block">
+      file: {{ team_data.path.split('/')[-1] }}
+    </div>
+  </div>
+</div>
+
+{% for obj in team_data.objectives %}
+<section class="mb-10">
+  <h2 class="text-lg font-semibold mb-4 flex items-baseline gap-2">
+    <span class="text-slate-400 font-mono text-sm">{{ obj.id }}</span>
+    <span>{{ obj.title }}</span>
+  </h2>
+
+  <div class="space-y-4">
+    {% for kr in obj.krs %}
+    <article id="{{ obj.id }}-{{ kr.id }}" class="bg-white border border-slate-200 rounded-lg overflow-hidden scroll-mt-20">
+      <header class="px-5 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
+        <div>
+          <div class="text-xs text-slate-400 font-mono">{{ obj.id }}.{{ kr.id }}</div>
+          <h3 class="font-medium mt-0.5 leading-tight">{{ kr.title }}</h3>
+        </div>
+        {{ traj_pill(kr.trajectory) }}
+      </header>
+
+      <div class="px-5 py-4 grid grid-cols-1 md:grid-cols-3 gap-5 text-sm">
+        <div>
+          <div class="text-xs text-slate-500 mb-0.5">Progress</div>
+          <div class="text-xl font-semibold">
+            {{ kr.current }}
+            <span class="text-slate-400 text-base font-normal">/ {{ kr.target }}</span>
+          </div>
+          <div class="text-xs text-slate-500 mt-0.5">
+            baseline {{ kr.baseline }} · {{ kr.direction or 'up' }}
+          </div>
+          {% if kr._display.percent is not none %}
+          <div class="mt-3 h-1.5 bg-slate-100 rounded overflow-hidden">
+            <div class="h-full
+              {% if kr.trajectory == 'green' %}bg-emerald-500
+              {% elif kr.trajectory == 'yellow' %}bg-amber-500
+              {% elif kr.trajectory == 'red' %}bg-red-500
+              {% else %}bg-slate-400{% endif %}"
+              style="width: {{ kr._display.percent }}%"></div>
+          </div>
+          <div class="text-xs text-slate-500 mt-1">
+            {{ kr._display.percent }}% · linear pace target: {{ kr._display.pace_target }}
+          </div>
+          {% endif %}
+        </div>
+
+        <div>
+          <div class="text-xs text-slate-500 mb-0.5">Source</div>
+          <div class="font-mono text-xs text-slate-700 break-all">{{ kr.source }}</div>
+          <div class="text-xs text-slate-500 mt-3 mb-1">Depends on</div>
+          {% if kr._outbound %}
+            {% for dep in kr._outbound %}{{ dep_link(dep) }}{% endfor %}
+          {% else %}
+            <span class="text-xs text-slate-400">none</span>
+          {% endif %}
+          {% if kr._inbound %}
+            <div class="text-xs text-slate-500 mt-3 mb-1">Blocks</div>
+            {% for dep in kr._inbound %}{{ dep_link(dep) }}{% endfor %}
+          {% endif %}
+        </div>
+
+        <div>
+          <div class="text-xs text-slate-500 mb-0.5">Confidence (human)</div>
+          <div class="text-xl font-semibold">{{ '%.2f' % (kr.confidence|float) if kr.confidence is not none else '—' }}</div>
+          {% if kr.confidence is not none %}
+          <div class="mt-3 h-1.5 bg-slate-100 rounded overflow-hidden">
+            <div class="h-full bg-slate-500" style="width: {{ (kr.confidence|float * 100)|round(0, 'floor') }}%"></div>
+          </div>
+          {% endif %}
+          <div class="text-xs text-slate-500 mt-2">Updated {{ kr.last_human_update or '—' }}</div>
+        </div>
+      </div>
+
+      <div class="px-5 pb-4">
+        <div class="text-xs text-slate-500 mb-1.5">Note · what numbers don't show</div>
+        <div class="text-sm text-slate-700 bg-slate-50 rounded p-3 whitespace-pre-wrap leading-relaxed border border-slate-100">{{ kr.last_human_note|trim or '(no note)' }}</div>
+      </div>
+
+      <div class="px-5 pb-4">
+        <div class="flex items-center gap-2 mb-1.5">
+          <div class="text-xs text-slate-500">Unwritten risks · tacit dependencies the graph cannot see</div>
+          {% if not kr.unwritten_risks %}
+            <span class="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200" title="Naming these keeps the dependency graph honest. The most damaging dependencies are usually the unwritten ones.">not yet named</span>
+          {% endif %}
+        </div>
+        {% if kr.unwritten_risks %}
+          {% if kr.unwritten_risks is string %}
+            <div class="text-sm text-amber-900 bg-amber-50 rounded p-3 whitespace-pre-wrap leading-relaxed border border-amber-100">{{ kr.unwritten_risks|trim }}</div>
+          {% else %}
+            <ul class="list-disc pl-5 text-sm text-amber-900 bg-amber-50 rounded p-3 border border-amber-100">
+              {% for r in kr.unwritten_risks %}<li class="leading-relaxed">{{ r }}</li>{% endfor %}
+            </ul>
+          {% endif %}
+        {% else %}
+          <div class="text-xs text-slate-400 italic">e.g. "legal review of vendor contract", "Berlin sublease unsigned", "key hire pending" — anything the team is silently betting on that isn't in <code class="not-italic font-mono bg-slate-100 px-1 rounded">depends_on</code>.</div>
+        {% endif %}
+      </div>
+
+      <details class="px-5 pb-5 border-t border-slate-100 pt-3 group">
+        <summary class="text-sm font-medium text-slate-700 cursor-pointer select-none flex items-center gap-1">
+          <span class="group-open:rotate-90 inline-block transition-transform">›</span>
+          Edit human fields
+        </summary>
+        <form method="POST" action="{{ url_for('edit_kr', team=team, obj_id=obj.id, kr_id=kr.id) }}" class="mt-4 space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Confidence (0.00 — 1.00)</label>
+            <div class="flex items-center gap-3">
+              <input type="range" name="confidence" min="0" max="1" step="0.05"
+                value="{{ kr.confidence if kr.confidence is not none else 0.5 }}"
+                oninput="this.nextElementSibling.value = parseFloat(this.value).toFixed(2)"
+                class="flex-1 accent-slate-700">
+              <output class="text-sm font-mono w-12 text-right">{{ '%.2f' % (kr.confidence|float) if kr.confidence is not none else '0.50' }}</output>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Note</label>
+            <textarea name="note" rows="5"
+              class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-slate-300"
+              placeholder="What the metric isn't telling you. Plan for at-risk KRs. Decisions you need.">{{ kr.last_human_note|trim if kr.last_human_note else '' }}</textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">
+              Unwritten risks
+              <span class="text-slate-400 font-normal">— tacit dependencies the graph can't see</span>
+            </label>
+            <textarea name="unwritten_risks" rows="3"
+              class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-slate-300"
+              placeholder="One risk per line. e.g. Legal review of vendor contract, no ETA. Key hire pending. Berlin sublease unsigned.">{% if kr.unwritten_risks is string %}{{ kr.unwritten_risks|trim }}{% elif kr.unwritten_risks %}{% for r in kr.unwritten_risks %}{{ r }}
+{% endfor %}{% endif %}</textarea>
+          </div>
+          <div class="flex items-center gap-3">
+            <button type="submit" class="bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">Save</button>
+            <span class="text-xs text-slate-500">last_human_update will be stamped to today</span>
+          </div>
+        </form>
+      </details>
+
+      <details class="px-5 pb-5 border-t border-slate-100 pt-3 group">
+        <summary class="text-sm font-medium text-slate-700 cursor-pointer select-none flex items-center gap-1">
+          <span class="group-open:rotate-90 inline-block transition-transform">›</span>
+          Edit OKR metadata
+          <span class="ml-2 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">advanced</span>
+        </summary>
+        <form method="POST" action="{{ url_for('edit_kr_meta', team=team, obj_id=obj.id, kr_id=kr.id) }}" class="mt-4 space-y-4">
+          <div class="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-900 leading-relaxed">
+            Baselines and targets are <strong>set once at the start of the quarter</strong> by convention. Changing them
+            mid-quarter usually means the original was wrong — in which case, explain why in the Note field above.
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Title</label>
+            <input name="title" type="text" value="{{ kr.title }}"
+              class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300">
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Baseline</label>
+              <input name="baseline" type="text" value="{{ kr.baseline }}"
+                class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Target</label>
+              <input name="target" type="text" value="{{ kr.target }}"
+                class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Direction</label>
+              <select name="direction" class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300">
+                <option value="up" {% if (kr.direction or 'up') == 'up' %}selected{% endif %}>up (higher is better)</option>
+                <option value="down" {% if kr.direction == 'down' %}selected{% endif %}>down (lower is better)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-600 mb-1">Source</label>
+              <input name="source" type="text" value="{{ kr.source }}"
+                class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300"
+                placeholder="manual or e.g. hubspot.deals[...]">
+            </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <button type="submit" class="bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">Update metadata</button>
+            <span class="text-xs text-slate-500">ID <code class="font-mono bg-slate-100 px-1 rounded text-[10px]">{{ obj.id }}.{{ kr.id }}</code> is immutable so dependency refs stay valid.</span>
+          </div>
+        </form>
+      </details>
+    </article>
+    {% endfor %}
+
+    <details class="border-2 border-dashed border-slate-300 rounded-lg group hover:border-slate-400">
+      <summary class="px-5 py-3 text-sm font-medium text-slate-600 cursor-pointer select-none flex items-center gap-1 hover:text-slate-900">
+        <span class="text-base leading-none">+</span> Add KR to <span class="font-mono">{{ obj.id }}</span>
+      </summary>
+      <form method="POST" action="{{ url_for('new_kr', team=team, obj_id=obj.id) }}" class="px-5 pb-5 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">KR title</label>
+          <input name="title" type="text" required placeholder="e.g. Inbound qualified leads 8/mo → 30/mo"
+            class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300">
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Baseline</label>
+            <input name="baseline" type="text" value="0" required
+              class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Target</label>
+            <input name="target" type="text" value="1" required
+              class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Direction</label>
+            <select name="direction" class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300">
+              <option value="up">up (higher is better)</option>
+              <option value="down">down (lower is better)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-600 mb-1">Source</label>
+            <input name="source" type="text" value="manual"
+              class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300"
+              placeholder="manual or e.g. ga4.metric[name=sessions]">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-600 mb-1">Depends on <span class="text-slate-400 font-normal">(optional, comma- or newline-separated)</span></label>
+          <input name="depends_on" type="text" placeholder="data-ops:O1.KR2, eng:O2.KR1"
+            class="w-full border border-slate-300 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-slate-300">
+        </div>
+        <div class="flex items-center gap-3">
+          <button type="submit" class="bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">Add KR</button>
+          <span class="text-xs text-slate-500">Initial current = baseline. Trajectory will be computed on next refresh.</span>
+        </div>
+      </form>
+    </details>
+  </div>
+</section>
+{% endfor %}
+
+<section class="mt-8 mb-12">
+  <details class="border-2 border-dashed border-slate-300 rounded-lg group hover:border-slate-400">
+    <summary class="px-5 py-3 text-sm font-medium text-slate-600 cursor-pointer select-none flex items-center gap-1 hover:text-slate-900">
+      <span class="text-base leading-none">+</span> Add Objective to {{ team }}
+    </summary>
+    <form method="POST" action="{{ url_for('new_objective', team=team) }}" class="px-5 pb-5 space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-600 mb-1">Objective title</label>
+        <input name="title" type="text" required placeholder="e.g. Make the brand impossible to miss for embodied AI buyers"
+          class="w-full border border-slate-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300">
+        <div class="text-xs text-slate-500 mt-1">Keep it qualitative and inspirational. The measurement happens in the KRs.</div>
+      </div>
+      <div class="flex items-center gap-3">
+        <button type="submit" class="bg-slate-900 text-white text-sm font-medium px-4 py-2 rounded hover:bg-slate-700">Add objective</button>
+        <span class="text-xs text-slate-500">A fresh objective starts with no KRs — add them below the new heading.</span>
+      </div>
+    </form>
+  </details>
+</section>
+
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}History · OKRs{% endblock %}
+{% block content %}
+
+<div class="mb-6">
+  <h1 class="text-2xl font-bold tracking-tight">Change history</h1>
+  <p class="text-sm text-slate-600 mt-1">
+    Every commit that touched an OKR file. The audit trail for what changed, when, and by whom — the agent loop's
+    refresh PRs and human edits land here side by side.
+  </p>
+</div>
+
+{% if commits is none %}
+  <div class="bg-amber-50 border border-amber-200 rounded-lg p-6 text-sm text-amber-900">
+    <div class="font-medium mb-1">No git repository detected for the OKR files.</div>
+    <div class="text-amber-800 leading-relaxed">
+      The README's intended layout is a dedicated repo for the OKR files. Initialize one with
+      <code class="bg-amber-100 px-1 py-0.5 rounded">git init</code> in <code class="bg-amber-100 px-1 py-0.5 rounded">{{ repo_root or '..' }}</code>,
+      then commit the team files and check-ins. After the first commit, this page will show every subsequent change.
+    </div>
+  </div>
+{% elif commits|length == 0 %}
+  <div class="bg-slate-50 border border-slate-200 rounded-lg p-6 text-sm text-slate-600 leading-relaxed">
+    <div class="font-medium text-slate-700 mb-1">No commits affect OKR files yet.</div>
+    Repo root: <code class="bg-white border border-slate-200 px-1 py-0.5 rounded font-mono text-xs">{{ repo_root }}</code>.
+    Commit the team OKR files and check-ins to start populating this timeline. The weekly refresh PR
+    opened by the GitHub Action will show up here automatically.
+  </div>
+{% else %}
+
+  <div class="flex flex-wrap items-center gap-2 mb-5 text-xs">
+    <span class="text-slate-500">Filter:</span>
+    <a href="{{ url_for('history_page') }}"
+       class="px-2 py-1 rounded border {% if not filter_team and not filter_file %}bg-slate-900 text-white border-slate-900{% else %}bg-white border-slate-200 text-slate-700 hover:border-slate-400{% endif %}">All</a>
+    {% for t in teams %}
+      <a href="{{ url_for('history_page', team=t) }}"
+         class="px-2 py-1 rounded border {% if filter_team == t %}bg-slate-900 text-white border-slate-900{% else %}bg-white border-slate-200 text-slate-700 hover:border-slate-400{% endif %}">{{ t }}</a>
+    {% endfor %}
+  </div>
+
+  <div class="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
+    {% for c in commits %}
+    <a href="{{ url_for('commit_page', sha=c.sha) }}" class="block px-5 py-4 hover:bg-slate-50">
+      <div class="flex items-start justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-sm font-medium text-slate-900 truncate">{{ c.message }}</div>
+          <div class="text-xs text-slate-500 mt-1 flex items-center gap-2 flex-wrap">
+            <span class="font-mono text-slate-700">{{ c.short }}</span>
+            <span>·</span>
+            <span>{{ c.author }}</span>
+            <span>·</span>
+            <span title="{{ c.date }}">{{ c.date|humandate }}</span>
+            {% if c.message.lower().startswith('weekly okr refresh') or 'claude' in c.author.lower() or 'bot' in c.email.lower() %}
+              <span class="ml-1 px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 text-[10px] uppercase tracking-wide">agent</span>
+            {% endif %}
+          </div>
+          {% if c.files %}
+          <div class="flex gap-1 flex-wrap mt-2">
+            {% for f in c.files[:6] %}
+              <span class="text-[11px] font-mono bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">{{ f }}</span>
+            {% endfor %}
+            {% if c.files|length > 6 %}
+              <span class="text-[11px] text-slate-500">+{{ c.files|length - 6 }} more</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="text-slate-300 text-lg shrink-0">›</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+
+  <p class="text-xs text-slate-400 mt-4">Showing {{ commits|length }} most recent commit{{ 's' if commits|length != 1 else '' }} touching OKR files.</p>
+
+{% endif %}
+
+{% endblock %}

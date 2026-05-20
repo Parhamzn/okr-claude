@@ -1,0 +1,60 @@
+name: Weekly OKR refresh
+
+on:
+  schedule:
+    # Monday 06:00 UTC = 08:00 in Zurich during summer time. Adjust to taste.
+    - cron: '0 6 * * MON'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Refresh metrics
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          HUBSPOT_ACCESS_TOKEN: ${{ secrets.HUBSPOT_ACCESS_TOKEN }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
+          WAREHOUSE_URL: ${{ secrets.WAREHOUSE_URL }}
+        run: |
+          claude --print --dangerously-skip-permissions \
+            "/refresh-metrics" > refresh.log
+          cat refresh.log
+
+      - name: Generate check-ins
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          for team in growth data-ops eng; do
+            claude --print --dangerously-skip-permissions \
+              "/weekly-checkin $team" >> refresh.log
+          done
+
+      - name: Regenerate dependency graph
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          claude --print --dangerously-skip-permissions \
+            "/dependency-graph" >> refresh.log
+
+      - name: Open PR with the diff
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "Weekly OKR refresh"
+          title: "Weekly OKR refresh"
+          body-path: refresh.log
+          branch: okr-refresh/${{ github.run_number }}
+          delete-branch: true
